@@ -17,16 +17,18 @@ namespace Gate
 
         public static byte[] receivedBuffer = new[] { (byte)GateMessage.Received };
 
-        public Gate()
+        public Gate(int frontPort, int backPort)
         {
-            frontendNetwork = new ServerNetwork(6888)
+            frontendNetwork = new ServerNetwork(frontPort)
             {
                 OnClientConnected = OnFrontendConnected,
+                OnClientDisconnected = OnFrontendDisconnected,
                 OnClientMessageReceived = OnFrontendMessageReceived,
             };
-            backendNetwork = new ServerNetwork(6999)
+            backendNetwork = new ServerNetwork(backPort)
             {
                 OnClientConnected = OnBackendConnected,
+                OnClientDisconnected = OnBackendDisconnected,
                 OnClientMessageReceived = OnBackendMessageReceived,
             };
 
@@ -46,9 +48,21 @@ namespace Gate
 
 
         }
+
+        private void OnFrontendDisconnected(IRemote conn)
+        {
+            Console.WriteLine("OnFrontendDisconnected id:{0} ip:{1} port:{2}", conn.Id, conn.RemoteIp, conn.RemotePort);
+
+        }
         private void OnBackendConnected(IRemote conn)
         {
             Console.WriteLine("OnBackendConnected id:{0} ip:{1} port:{2}", conn.Id, conn.RemoteIp, conn.RemotePort);
+
+        }
+
+        private void OnBackendDisconnected(IRemote conn)
+        {
+            Console.WriteLine("OnBackendDisconnected id:{0} ip:{1} port:{2}", conn.Id, conn.RemoteIp, conn.RemotePort);
 
 
         }
@@ -177,14 +191,15 @@ namespace Gate
                     }
                     break;
                 #endregion
-
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
         }
 
         public static void PushReceivedMessage(IRemote remote, byte[] data, int len, int offset)
         {
+            if (!remote.Connected)
+            {
+                return;
+            }
             remote.PushBegin(receivedBuffer.Length + len);
             remote.PushMore(receivedBuffer, receivedBuffer.Length, 0);
             remote.PushMore(data, len, offset);
